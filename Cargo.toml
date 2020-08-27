@@ -1,0 +1,10 @@
+[package]
+name = "droidsdk"
+version = "0.1.0"
+authors = ["Serhii Kartashov, Bohdan Strutynskyi"]
+edition = "2020"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = "0.10"
