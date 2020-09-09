@@ -2,6 +2,7 @@ use std::error::Error;
 
 pub(crate) mod root;
 pub(crate) mod interactive;
+pub(crate) mod list;
 
 use string_error::new_err;
 

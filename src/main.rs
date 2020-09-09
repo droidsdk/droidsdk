@@ -1,6 +1,5 @@
-extern crate seahorse;
-
 mod cli;
+mod sdkman_api;
 
 use cli::root::build_cli_root;
 

@@ -1,6 +1,7 @@
 use seahorse::{App, Command, Context, Flag, FlagType, error::FlagError};
 use crate::cli::get_exec_name;
 use crate::cli::interactive::build_cli_interactive;
+use crate::cli::list::build_cli_list;
 
 pub fn build_cli_root() -> App {
     return App::new(env!("CARGO_PKG_NAME"))
@@ -14,5 +15,6 @@ pub fn build_cli_root() -> App {
                 .alias("t"),
         )
         .command(build_cli_interactive())
+        .command(build_cli_list())
         .action(|c| println!("Hello, {:?}", c.args));
 }
