@@ -1,3 +1,14 @@
+extern crate seahorse;
+
+mod cli;
+
+use cli::root::build_cli_root;
+
+use std::env;
+use seahorse::{App, Command, Context, Flag, FlagType, error::FlagError};
+
 fn main() {
-    println!("Hello, Rust!");
+    let args: Vec<String> = env::args().collect();
+    let app = build_cli_root();
+    app.run(args);
 }
