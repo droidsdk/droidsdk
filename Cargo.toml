@@ -14,3 +14,6 @@ seahorse = "1.0.0"
 dialoguer = "0.6.2"
 
 string-error = "0.1.0"
+
+flate2 = "1.0.17"
+tar = "0.4.30"
