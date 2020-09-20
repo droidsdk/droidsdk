@@ -1,4 +1,4 @@
-use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive};
+use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive, unpack_zip_archive};
 use std::fs::{File, create_dir_all};
 use std::{io, thread};
 use reqwest::redirect::Policy;
@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tar::Archive;
 use flate2::read::GzDecoder;
 use std::path::PathBuf;
+use std::error::Error;
 
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     // TODO: execution of pre- and post-install hooks
@@ -64,9 +65,16 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
         println!("Archive already exists: {}", dl_path.to_str().unwrap());
     }
 
-    println!("Unpacking file...");
     let unpack_path = get_workdir_subpath(format!("tmp/{}_{}", sdkit, version));
-    let unpacked_to_path = unpack_tar_gz_archive(&dl_path_, &unpack_path);
+    println!("Unpacking file...");
+    let unpacked_to_path: Result<PathBuf, String> =
+        if filename.ends_with(".tar.gz") {
+            Ok(unpack_tar_gz_archive(&dl_path_, &unpack_path))
+        } else if filename.ends_with(".zip") {
+            Ok(unpack_zip_archive(&dl_path_, &unpack_path))
+        } else { Err(format!("File {} is of unknown filetype", filename)) };
+
+    let unpacked_to_path = unpacked_to_path.expect("Failed to extract archive");
 
     println!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
     create_dir_all(install_path.clone());

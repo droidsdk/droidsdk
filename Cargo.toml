@@ -15,5 +15,8 @@ dialoguer = "0.6.2"
 
 string-error = "0.1.0"
 
-flate2 = "1.0.17"
+# .tar.gz
+flate2 = "1.0.14" # outdated becauze zip depends on it - TODO check if we can bypass using zip entirely
 tar = "0.4.30"
+# .zip
+zip = "0.5.8"
