@@ -1,4 +1,4 @@
-use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath};
+use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive};
 use std::fs::{File, create_dir_all};
 use std::{io, thread};
 use reqwest::redirect::Policy;
@@ -15,6 +15,13 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     //  (do we actually want to run downloaded .sh scripts?)
 
     // TODO: way too much manual code here. need to go through crates.io and look for existing solutions
+
+    let install_path = get_workdir_subpath(format!("candidates/{}/{}", sdkit, version));
+
+    if install_path.exists() {
+        eprintln!("FAILURE: Candidate already installed (path {} exists)", install_path.to_str().unwrap());
+        return
+    }
 
     // call SDKMAN! API which
     // redirects us to the direct download link for the specified SDKit archive
@@ -58,19 +65,9 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     }
 
     println!("Unpacking file...");
-
-    //https://rust-lang-nursery.github.io/rust-cookbook/compression/tar.html
-    let tar_gz = File::open(dl_path_.clone()).unwrap();
-    let tar = GzDecoder::new(tar_gz);
-    let mut archive = Archive::new(tar);
     let unpack_path = get_workdir_subpath(format!("tmp/{}_{}", sdkit, version));
-    archive.unpack(unpack_path.clone()).unwrap();
+    let unpacked_to_path = unpack_tar_gz_archive(&dl_path_, &unpack_path);
 
-    let mut unpacked_to_path = unpack_path.join(filename);
-    unpacked_to_path.set_extension(""); // - .tar
-    unpacked_to_path.set_extension(""); // - .gz
-
-    let install_path = get_workdir_subpath(format!("candidates/{}/{}", sdkit, version));
     println!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
     create_dir_all(install_path.clone());
     std::fs::rename(unpacked_to_path, install_path).expect("failed to rename file");
