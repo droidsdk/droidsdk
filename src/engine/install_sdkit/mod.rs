@@ -1,5 +1,5 @@
-use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive, unpack_zip_archive};
-use std::fs::{File, create_dir_all};
+use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive, unpack_zip_archive, traverse_single_dirs};
+use std::fs::{File, create_dir_all, remove_dir_all};
 use std::{io, thread};
 use reqwest::redirect::Policy;
 use std::time::Duration;
@@ -59,22 +59,38 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
             from {}\n\
             to {}",
             sdkit, version, os_and_arch, redirect, dl_path.to_str().unwrap().to_string());
-        download_archive(redirect, dl_path);
+        download_archive(redirect, dl_path.clone());
         println!("Download finished");
     }else {
         println!("Archive already exists: {}", dl_path.to_str().unwrap());
     }
 
-    let unpack_path = get_workdir_subpath(format!("tmp/{}_{}", sdkit, version));
-    println!("Unpacking file...");
-    let unpacked_to_path: Result<PathBuf, String> =
-        if filename.ends_with(".tar.gz") {
-            Ok(unpack_tar_gz_archive(&dl_path_, &unpack_path))
-        } else if filename.ends_with(".zip") {
-            Ok(unpack_zip_archive(&dl_path_, &unpack_path))
-        } else { Err(format!("File {} is of unknown filetype", filename)) };
+    let tmp_path = get_workdir_subpath("tmp".to_string());
+    if tmp_path.exists() {
+        println!("tmp dir exists - recreating (clearing)");
+        remove_dir_all(tmp_path);
+    }
 
-    let unpacked_to_path = unpacked_to_path.expect("Failed to extract archive");
+    let unpack_path = get_workdir_subpath(format!("tmp/{}_{}", sdkit, version));
+    create_dir_all(unpack_path.clone());
+    println!("Unpacking file...");
+    if filename.ends_with(".tar.gz") {
+        unpack_tar_gz_archive(&dl_path_, &unpack_path)
+            .expect(&*format!("Failed unpacking .tar.gz archive at {}", dl_path.to_str().unwrap()))
+    } else if filename.ends_with(".zip") {
+        unpack_zip_archive(&dl_path_, &unpack_path)
+            .expect(&*format!("Failed unpacking .zip archive at {}", dl_path.to_str().unwrap()))
+    } else {
+        // TODO panic! -> Error
+        panic!(format!("File {} is of unknown filetype", filename))
+    };
+
+    // note: this assumes that every candidate has a "flat" directory structure
+    // that is, in ${candidate}_HOME there are many files and directories of various types
+    // and not just a single directory (which would be quite weird)
+    // so far all candidates i've looked at seem to follow this
+    let unpacked_to_path = traverse_single_dirs(&unpack_path)
+        .expect("Could not find the extracted files");
 
     println!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
     create_dir_all(install_path.clone());
