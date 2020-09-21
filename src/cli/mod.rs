@@ -3,6 +3,7 @@ use std::error::Error;
 pub(crate) mod root;
 pub(crate) mod list;
 pub(crate) mod install;
+pub(crate) mod use_;
 
 use string_error::new_err;
 

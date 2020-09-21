@@ -20,3 +20,5 @@ flate2 = "1.0.14" # outdated becauze zip depends on it - TODO check if we can by
 tar = "0.4.30"
 # .zip
 zip = "0.5.8"
+
+lazy_static = "1.4.0"

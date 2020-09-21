@@ -2,11 +2,12 @@ use std::path::{Path, PathBuf};
 use std::fs::{create_dir_all, File, set_permissions, Permissions, read_dir};
 use flate2::read::GzDecoder;
 use tar::Archive;
-use std::io::copy;
+use std::io::{copy, Write};
 use zip::ZipArchive;
 use std::error::Error;
 
 use string_error::new_err;
+use std::sync::Mutex;
 
 pub fn ensure_dir_exists(relative_path: String) {
     let path = get_workdir_subpath(relative_path);
@@ -120,4 +121,15 @@ pub fn unpack_zip_archive(path_to_archive: &Path, target_folder: &Path) -> Resul
     }
 
     return Ok(())
+}
+
+lazy_static!(
+    static ref SETVARS_FILE : Mutex<File> = Mutex::new(File::create(get_workdir_subpath("setvars.sh".to_string()))
+        .expect("Failed to overwrite setvars.sh"));
+);
+pub fn write_new_env_var_value(name: String, value: String) {
+    SETVARS_FILE.lock()
+        .expect("Failed to obtain mutex")
+        .write_all(format!("export {}={}\n", name, value).as_ref())
+        .expect("Failed to write new env var value");
 }

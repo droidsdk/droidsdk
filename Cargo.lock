@@ -143,6 +143,7 @@ version = "0.1.0"
 dependencies = [
  "dialoguer",
  "flate2",
+ "lazy_static",
  "regex",
  "reqwest",
  "seahorse",
