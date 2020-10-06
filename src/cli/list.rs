@@ -5,6 +5,7 @@ use crate::sdkman_api::versions::{fetch_versions, fetch_versions_java};
 use crate::engine::operating_system::get_current_os_and_arch;
 use crate::engine::filesystem::get_installed_candidate_versions;
 use std::ops::Deref;
+use std::borrow::Borrow;
 
 pub fn build_cli_list() -> Command {
     Command::new("list")
@@ -40,9 +41,10 @@ pub fn exec_list(c: &Context) {
         }
     } else {
         println!("Listing available SDKits...");
+        println!("Use whatis [candidate] for more info");
         let result = fetch_candidates().unwrap();
         for candidate in result {
-            println!("Candidate {}\n", candidate)
+            println!("{}", candidate.candidate_name)
         }
     }
 }

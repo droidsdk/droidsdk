@@ -8,7 +8,7 @@ pub struct SdkManCandidate {
     version: String,
     homepage: String,
     description: String,
-    candidate_name: String
+    pub candidate_name: String
 }
 
 impl Display for SdkManCandidate {

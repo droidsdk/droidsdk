@@ -4,6 +4,7 @@ pub(crate) mod root;
 pub(crate) mod list;
 pub(crate) mod install;
 pub(crate) mod use_;
+pub(crate) mod whatis;
 
 use string_error::new_err;
 
