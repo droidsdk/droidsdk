@@ -7,6 +7,7 @@ use std::env::consts:: {
 pub fn get_current_os_and_arch() -> String {
     let os = match OS {
         "linux" => "Linux",
+        "windows" => "cygwin",
         _ => "OTHER_"
     };
     let arch = match ARCH {

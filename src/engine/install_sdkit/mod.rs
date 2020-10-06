@@ -17,7 +17,8 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
 
     // TODO: way too much manual code here. need to go through crates.io and look for existing solutions
 
-    let install_path = get_workdir_subpath(format!("candidates/{}/{}", sdkit, version));
+    let install_path = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone())
+        .to_str().unwrap().to_string());
 
     if install_path.exists() {
         eprintln!("FAILURE: Candidate already installed (path {} exists)", install_path.to_str().unwrap());
@@ -71,7 +72,11 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
         remove_dir_all(tmp_path);
     }
 
-    let unpack_path = get_workdir_subpath(format!("tmp/{}_{}", sdkit, version));
+    let unpack_path = get_workdir_subpath(
+        PathBuf::from("tmp")
+            .join(format!("{}_{}", sdkit, version))
+            .to_str().unwrap().to_string()
+    );
     create_dir_all(unpack_path.clone());
     println!("Unpacking file...");
     if filename.ends_with(".tar.gz") {
@@ -93,7 +98,15 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
         .expect("Could not find the extracted files");
 
     println!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
+
+
+
     create_dir_all(install_path.clone());
+    #[cfg(target_family = "windows")] {
+        if install_path.clone().exists() && install_path.clone().is_dir() {
+            std::fs::remove_dir(install_path.clone());
+        }
+    }
     std::fs::rename(unpacked_to_path, install_path).expect("failed to rename file");
 
     println!("Unpack complete.");

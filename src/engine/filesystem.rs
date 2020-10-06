@@ -20,7 +20,9 @@ pub fn get_workdir_subpath(relative_path: String) -> PathBuf {
 }
 
 pub fn get_app_workdir_path() -> PathBuf {
-    let path_to_home = std::env::var("HOME").unwrap_or("/".to_string());
+    let path_to_home = std::env::var("HOME")
+        .or(std::env::var("UserProfile"))
+        .unwrap_or("/".to_string());
     return Path::new(&path_to_home).join(".droidsdk");
 }
 
@@ -123,13 +125,28 @@ pub fn unpack_zip_archive(path_to_archive: &Path, target_folder: &Path) -> Resul
     return Ok(())
 }
 
-lazy_static!(
-    static ref SETVARS_FILE : Mutex<File> = Mutex::new(File::create(get_workdir_subpath("setvars.sh".to_string()))
-        .expect("Failed to overwrite setvars.sh"));
-);
-pub fn write_new_env_var_value(name: String, value: String) {
-    SETVARS_FILE.lock()
-        .expect("Failed to obtain mutex")
-        .write_all(format!("export {}={}\n", name, value).as_ref())
-        .expect("Failed to write new env var value");
+cfg_if::cfg_if! {
+    if #[cfg(target_family="unix")] {
+        lazy_static!(
+            static ref SETVARS_FILE : Mutex<File> = Mutex::new(File::create(get_workdir_subpath("setvars.sh".to_string()))
+                .expect("Failed to overwrite setvars.sh"));
+        );
+        pub fn write_new_env_var_value(name: String, value: String) {
+            SETVARS_FILE.lock()
+                .expect("Failed to obtain mutex")
+                .write_all(format!("export {}={}\n", name, value).as_ref())
+                .expect("Failed to write new env var value");
+        }
+    } else {
+        lazy_static!(
+            static ref SETVARS_FILE : Mutex<File> = Mutex::new(File::create(get_workdir_subpath("setvars.bat".to_string()))
+                .expect("Failed to overwrite setvars.bat"));
+        );
+        pub fn write_new_env_var_value(name: String, value: String) {
+            SETVARS_FILE.lock()
+                .expect("Failed to obtain mutex")
+                .write_all(format!("set \"{}={}\"\n", name, value).as_ref())
+                .expect("Failed to write new env var value");
+        }
+    }
 }
