@@ -3,7 +3,6 @@ use regex::Regex;
 use crate::engine::filesystem::{get_workdir_subpath, write_new_env_var_value};
 use std::fs::File;
 use std::io::Write;
-use std::ops::Add;
 use std::path::PathBuf;
 
 pub fn set_sdkit_as_current(sdkit: String, version: String) {
@@ -19,8 +18,8 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) {
         .expect("Failed to create backup file for $PATH");
     backup_path_file.write_all(env_path.clone().as_ref());
 
-    let mut fs_separator = "/";
-    let mut path_separator = ":";
+    let mut fs_separator: &str;
+    let mut path_separator: &str;
     cfg_if::cfg_if! {
         if #[cfg(target_family="unix")] {
             fs_separator = r"/";

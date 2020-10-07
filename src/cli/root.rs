@@ -1,4 +1,4 @@
-use seahorse::{App, Command, Context, Flag, FlagType, error::FlagError};
+use seahorse::{App, Flag, FlagType};
 use crate::cli::get_exec_name;
 use crate::cli::list::build_cli_list;
 use crate::cli::install::build_cli_install;

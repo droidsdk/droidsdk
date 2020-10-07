@@ -8,7 +8,6 @@ mod engine;
 use cli::root::build_cli_root;
 
 use std::env;
-use seahorse::{App, Command, Context, Flag, FlagType, error::FlagError};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

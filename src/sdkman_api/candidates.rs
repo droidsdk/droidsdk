@@ -18,7 +18,7 @@ impl Display for SdkManCandidate {
     }
 }
 
-pub fn fetch_candidates() -> Result<Vec<Box<SdkManCandidate>>, Box<Error>> {
+pub fn fetch_candidates() -> Result<Vec<Box<SdkManCandidate>>, Box<dyn Error>> {
     // TODO: extract URL (to config? to env var?)
     let url = "https://api.sdkman.io/2/candidates/list";
     let body = reqwest::blocking::get(url)

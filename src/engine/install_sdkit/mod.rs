@@ -1,15 +1,12 @@
 use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive, unpack_zip_archive, traverse_single_dirs};
 use std::fs::{File, create_dir_all, remove_dir_all};
-use std::{io, thread};
+use std::{thread};
 use reqwest::redirect::Policy;
 use std::time::Duration;
-use std::io::{Read, Write, IoSlice};
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::io::{Read, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tar::Archive;
-use flate2::read::GzDecoder;
 use std::path::PathBuf;
-use std::error::Error;
 
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     // TODO: execution of pre- and post-install hooks
@@ -119,7 +116,7 @@ fn download_archive(url: String, dl_path: PathBuf) {
 
     let mut out = File::create(dl_path).expect("failed to create file");
 
-    let mut downloaded = Arc::new(AtomicU64::new(0));
+    let downloaded = Arc::new(AtomicU64::new(0));
 
     // run the stream reading code in separate thread
     // this way we have 2 threads

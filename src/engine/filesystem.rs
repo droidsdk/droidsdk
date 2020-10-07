@@ -78,7 +78,6 @@ pub fn traverse_single_dirs(path: &Path) -> Result<PathBuf, Box<dyn Error>> {
 
 pub fn unpack_tar_gz_archive(path_to_archive: &Path, target_folder: &Path) -> Result<(), Box<dyn Error>>  {
     //https://rust-lang-nursery.github.io/rust-cookbook/compression/tar.html
-    let filename = path_to_archive.file_name().unwrap().to_str().unwrap().to_string();
     let tar_gz = File::open(path_to_archive).unwrap();
     let tar = GzDecoder::new(tar_gz);
     let mut archive = Archive::new(tar);
@@ -89,7 +88,6 @@ pub fn unpack_tar_gz_archive(path_to_archive: &Path, target_folder: &Path) -> Re
 
 // y so complicatd?
 pub fn unpack_zip_archive(path_to_archive: &Path, target_folder: &Path) -> Result<(), Box<dyn Error>> {
-    let filename = path_to_archive.file_name().unwrap().to_str().unwrap().to_string();
     let file = File::open(&path_to_archive).unwrap();
 
     let mut archive = ZipArchive::new(file).unwrap();

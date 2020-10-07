@@ -2,7 +2,7 @@ use regex::Regex;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fmt;
-use std::cmp::{max, Ordering};
+use std::cmp::{Ordering};
 use std::num::ParseIntError;
 
 pub struct SdkManCandidateVersion {
@@ -22,7 +22,7 @@ impl Display for SdkManCandidateVersion {
     }
 }
 
-pub fn fetch_versions(sdkit: String, os_and_arch: String, current_ver: String, installed_vers: Vec<String>) -> Result<Vec<Box<SdkManCandidateVersion>>, Box<Error>> {
+pub fn fetch_versions(sdkit: String, os_and_arch: String, current_ver: String, installed_vers: Vec<String>) -> Result<Vec<Box<SdkManCandidateVersion>>, Box<dyn Error>> {
     // TODO: extract URL (to config? to env var?)
     let url = format!("https://api.sdkman.io/2/candidates/{}/{}/versions/list?current={}&installed={}",
                       sdkit, os_and_arch, current_ver, installed_vers.join(","));
@@ -49,7 +49,7 @@ pub fn fetch_versions(sdkit: String, os_and_arch: String, current_ver: String, i
     return Ok(result);
 }
 
-pub fn fetch_versions_java(sdkit: String, os_and_arch: String, current_ver: String, installed_vers: Vec<String>) -> Result<Vec<Box<SdkManCandidateVersion>>, Box<Error>> {
+pub fn fetch_versions_java(sdkit: String, os_and_arch: String, current_ver: String, installed_vers: Vec<String>) -> Result<Vec<Box<SdkManCandidateVersion>>, Box<dyn Error>> {
     // TODO: extract URL (to config? to env var?)
     let url = format!("https://api.sdkman.io/2/candidates/{}/{}/versions/list?current={}&installed={}",
                       sdkit, os_and_arch, current_ver, installed_vers.join(","));

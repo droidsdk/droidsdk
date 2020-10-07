@@ -1,6 +1,4 @@
-use seahorse::{Command, Flag, Context};
-use crate::sdkman_api::candidates::fetch_candidates;
-use crate::sdkman_api::versions::fetch_versions;
+use seahorse::{Command, Context};
 use crate::engine::install_sdkit::install_sdkit;
 use crate::engine::operating_system::get_current_os_and_arch;
 
