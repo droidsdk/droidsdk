@@ -4,8 +4,9 @@ use crate::engine::filesystem::{get_workdir_subpath, write_new_env_var_value};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::error::Error;
 
-pub fn set_sdkit_as_current(sdkit: String, version: String) {
+pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dyn Error>> {
     let path_to_sdkit = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone()).to_str().unwrap().to_string());
     if !path_to_sdkit.exists() {
         panic!("FAILURE - Not installed!")
@@ -16,10 +17,10 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) {
 
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))
         .expect("Failed to create backup file for $PATH");
-    backup_path_file.write_all(env_path.clone().as_ref());
+    backup_path_file.write_all(env_path.clone().as_ref())?;
 
-    let mut fs_separator: &str;
-    let mut path_separator: &str;
+    let fs_separator: &str;
+    let path_separator: &str;
     cfg_if::cfg_if! {
         if #[cfg(target_family="unix")] {
             fs_separator = r"/";
@@ -58,4 +59,6 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) {
     }
 
     write_new_env_var_value("PATH".to_string(), env_path);
+
+    Ok(())
 }

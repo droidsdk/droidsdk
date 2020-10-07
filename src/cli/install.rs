@@ -13,5 +13,6 @@ pub fn exec_install(c: &Context) {
     let version = c.args[1].clone();
     let os_and_arch = get_current_os_and_arch();
     println!("Installing {} {} {}", candidate_name, version, os_and_arch);
-    install_sdkit(candidate_name, version, os_and_arch);
+    install_sdkit(candidate_name, version, os_and_arch)
+        .expect("Could not install the specified SDKit");
 }

@@ -7,8 +7,10 @@ use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::path::PathBuf;
+use std::error::Error;
+use string_error::new_err;
 
-pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
+pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
     //  (do we actually want to run downloaded .sh scripts?)
 
@@ -18,8 +20,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
         .to_str().unwrap().to_string());
 
     if install_path.exists() {
-        eprintln!("FAILURE: Candidate already installed (path {} exists)", install_path.to_str().unwrap());
-        return
+        return Err(new_err(&*format!("FAILURE: Candidate already installed (path {} exists)", install_path.to_str().unwrap())));
     }
 
     // call SDKMAN! API which
@@ -36,7 +37,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     let headers = resp.headers();
 
     // mkdirs ./app-name/archives
-    ensure_dir_exists("archives".to_string());
+    ensure_dir_exists("archives".to_string())?;
 
     // follow the redirect
     assert_eq!(resp.status(), 302, "Did not receive a redirect from SDKMAN! server");
@@ -57,7 +58,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
             from {}\n\
             to {}",
             sdkit, version, os_and_arch, redirect, dl_path.to_str().unwrap().to_string());
-        download_archive(redirect, dl_path.clone());
+        download_archive(redirect, dl_path.clone())?;
         println!("Download finished");
     }else {
         println!("Archive already exists: {}", dl_path.to_str().unwrap());
@@ -66,7 +67,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     let tmp_path = get_workdir_subpath("tmp".to_string());
     if tmp_path.exists() {
         println!("tmp dir exists - recreating (clearing)");
-        remove_dir_all(tmp_path);
+        remove_dir_all(tmp_path)?;
     }
 
     let unpack_path = get_workdir_subpath(
@@ -74,7 +75,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
             .join(format!("{}_{}", sdkit, version))
             .to_str().unwrap().to_string()
     );
-    create_dir_all(unpack_path.clone());
+    create_dir_all(unpack_path.clone())?;
     println!("Unpacking file...");
     if filename.ends_with(".tar.gz") {
         unpack_tar_gz_archive(&dl_path_, &unpack_path)
@@ -98,8 +99,10 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
 
 
 
-    create_dir_all(install_path.clone());
+    create_dir_all(install_path.clone())?;
     #[cfg(target_family = "windows")] {
+        // basically if the destination directory exists, Windows will not give us permissions
+        // so we need to nuke it
         if install_path.clone().exists() && install_path.clone().is_dir() {
             std::fs::remove_dir(install_path.clone());
         }
@@ -107,9 +110,11 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) {
     std::fs::rename(unpacked_to_path, install_path).expect("failed to rename file");
 
     println!("Unpack complete.");
+
+    Ok(())
 }
 
-fn download_archive(url: String, dl_path: PathBuf) {
+fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>> {
     let mut resp = reqwest::blocking::get(&url).expect("Failed to retrieve specified SDKit");
     let filesize = resp.content_length().unwrap_or(0);
     let arc_filesize = Arc::new(filesize);
@@ -144,5 +149,10 @@ fn download_archive(url: String, dl_path: PathBuf) {
         println!("Downloading... {}/{}", downloaded.load(Ordering::SeqCst), *arc_filesize);
         thread::sleep(Duration::new(10, 0));
     }
-    copy_thread.join();
+
+    if let Err(e) = copy_thread.join() {
+        return Err(new_err(&*format!("Failed while downloading: {:?}", e)));
+    }
+
+    Ok(())
 }

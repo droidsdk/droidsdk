@@ -9,9 +9,12 @@ use std::error::Error;
 use string_error::new_err;
 use std::sync::Mutex;
 
-pub fn ensure_dir_exists(relative_path: String) {
+pub fn ensure_dir_exists(relative_path: String) -> Result<(), Box<dyn Error>> {
     let path = get_workdir_subpath(relative_path);
-    create_dir_all(path);
+    return match create_dir_all(path) {
+        Err(e) => Err(Box::new(e)),
+        Ok(()) => Ok(())
+    }
 }
 
 pub fn get_workdir_subpath(relative_path: String) -> PathBuf {
@@ -95,7 +98,7 @@ pub fn unpack_zip_archive(path_to_archive: &Path, target_folder: &Path) -> Resul
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).unwrap();
-        let outpath = unpack_to.join(file.sanitized_name()); // TODO use a non-deprecated method
+        let outpath = unpack_to.join(file.sanitized_name()); // TODO use a non-deprecated method - not sure what to use here, tbh. leaving as is for now
 
         if (&*file.name()).ends_with('/') {
             create_dir_all(&outpath).unwrap();

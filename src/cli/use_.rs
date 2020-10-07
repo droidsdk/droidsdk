@@ -13,5 +13,6 @@ pub fn exec_use(c: &Context) {
     let version = c.args[1].clone();
     let os_and_arch = get_current_os_and_arch();
     println!("Attempting to use {} {} {}", candidate_name, version, os_and_arch);
-    set_sdkit_as_current(candidate_name, version);
+    set_sdkit_as_current(candidate_name, version)
+        .expect("Could not set the specified SDKit as current");
 }
