@@ -1,0 +1,3 @@
+# Install DSDK on Linux
+
+Hold on, i need to reboot into Ubuntu...
