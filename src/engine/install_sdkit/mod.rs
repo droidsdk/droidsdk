@@ -5,10 +5,11 @@ use reqwest::redirect::Policy;
 use std::time::Duration;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc};
 use std::path::PathBuf;
 use std::error::Error;
 use string_error::new_err;
+use std::thread::JoinHandle;
 
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
@@ -20,11 +21,10 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
         .to_str().unwrap().to_string());
 
     if install_path.exists() {
-        return Err(new_err(&*format!("FAILURE: Candidate already installed (path {} exists)", install_path.to_str().unwrap())));
+        return Err(new_err(&*format!("Candidate already installed (path {} exists)", install_path.to_str().unwrap())));
     }
 
-    // call SDKMAN! API which
-    // redirects us to the direct download link for the specified SDKit archive
+    // call SDKMAN! API which redirects us to the direct download link for the specified SDKit archive
     let url = format!("https://api.sdkman.io/2/broker/download/{}/{}/{}",
                       sdkit, version, os_and_arch);
     println!("GET {}", url);
@@ -40,7 +40,9 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     ensure_dir_exists("archives".to_string())?;
 
     // follow the redirect
-    assert_eq!(resp.status(), 302, "Did not receive a redirect from SDKMAN! server");
+    if resp.status() != 302 {
+        return Err(new_err(&*format!("Did not receive a redirect from SDKMAN! server (status code {})", resp.status())));
+    }
     let redirect = headers.get("location").unwrap().to_str().unwrap().to_string();
 
     // TODO there's probably a crate that does this, and better:
@@ -84,20 +86,16 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
         unpack_zip_archive(&dl_path_, &unpack_path)
             .expect(&*format!("Failed unpacking .zip archive at {}", dl_path.to_str().unwrap()))
     } else {
-        // TODO panic! -> Error
-        panic!(format!("File {} is of unknown filetype", filename))
+        return Err(new_err(&*format!("File {} is of unknown filetype", filename)))
     };
 
     // note: this assumes that every candidate has a "flat" directory structure
     // that is, in ${candidate}_HOME there are many files and directories of various types
     // and not just a single directory (which would be quite weird)
     // so far all candidates i've looked at seem to follow this
-    let unpacked_to_path = traverse_single_dirs(&unpack_path)
-        .expect("Could not find the extracted files");
+    let unpacked_to_path = traverse_single_dirs(&unpack_path)?;
 
     println!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
-
-
 
     create_dir_all(install_path.clone())?;
     #[cfg(target_family = "windows")] {
@@ -107,7 +105,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
             std::fs::remove_dir(install_path.clone());
         }
     }
-    std::fs::rename(unpacked_to_path, install_path).expect("failed to rename file");
+    std::fs::rename(unpacked_to_path, install_path)?;
 
     println!("Unpack complete.");
 
@@ -115,44 +113,56 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
 }
 
 fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>> {
-    let mut resp = reqwest::blocking::get(&url).expect("Failed to retrieve specified SDKit");
-    let filesize = resp.content_length().unwrap_or(0);
+    let mut resp = reqwest::blocking::get(&url)?;
+    let filesize = resp.content_length().ok_or(new_err("Could not read Content Length"))?;
     let arc_filesize = Arc::new(filesize);
 
-    let mut out = File::create(dl_path).expect("failed to create file");
+    let mut out = File::create(dl_path)?;
 
     let downloaded = Arc::new(AtomicU64::new(0));
 
     // run the stream reading code in separate thread
     // this way we have 2 threads
     // one actually downloads and record exact progress
-    let copy_thread;
+
+    // HEADS UP: the following code does not propagate errors meaningfully from the spawned threads
+    // for whatever god-forsaken reason Rust's wonderful Error trait does not implement Send + Sync
+    // which means it cannot be passed between threads
+    // so far i have not been able to find a way to send errors between threads meaningfully,
+    // and all i did is spend way too much time on this. so, whatever. we just panic completely instead.
+    let copy_thread: JoinHandle<()>;
     {
         let downloaded = downloaded.clone();
         let arc_filesize = arc_filesize.clone();
         copy_thread = thread::spawn(move || {
-            loop {
-                let mut buffer: Vec<u8> = Vec::new();
-                buffer.resize(500, 0);
-                let read = resp.read(&mut buffer).expect("failed to read bytes while downloading");
-                out.write(&buffer[0..read]).expect("failed to write bytes to file");
-                downloaded.fetch_add(read as u64, Ordering::SeqCst);
+            let mut download = || -> Result<(), Box<dyn Error>> {loop {
+                    let mut buffer: Vec<u8> = Vec::new();
+                    buffer.resize(500, 0);
+                    let read = resp.read(&mut buffer)?;
+                    out.write(&buffer[0..read])?;
+                    downloaded.fetch_add(read as u64, Ordering::SeqCst);
 
-                if downloaded.load(Ordering::SeqCst) == *arc_filesize {
-                    break;
+                    if downloaded.load(Ordering::SeqCst) == *arc_filesize {
+                        break;
+                    }
                 }
-            }
+                Ok(())
+            };
+
+            download()
+                .expect("Download failed");
         });
     };
+
     // the other (current) thread outputs this progress every second to the console
+    // TODO this format is ugly and unwieldy. need to find a crate for this or write our own solution
+    //  definitely need: %progress, MB progress, MB total, download speed
     while downloaded.load(Ordering::SeqCst) < *arc_filesize {
         println!("Downloading... {}/{}", downloaded.load(Ordering::SeqCst), *arc_filesize);
         thread::sleep(Duration::new(10, 0));
     }
 
-    if let Err(e) = copy_thread.join() {
-        return Err(new_err(&*format!("Failed while downloading: {:?}", e)));
-    }
+    copy_thread.join().expect("Join on download thread failed");
 
     Ok(())
 }
