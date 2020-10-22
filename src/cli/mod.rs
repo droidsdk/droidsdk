@@ -1,5 +1,20 @@
 use std::error::Error;
 
+#[macro_export]
+macro_rules! print_and_log_info {
+    ($($arg:tt)+) => (
+        info!($($arg)+);
+        println!($($arg)+);
+    )
+}
+
+macro_rules! print_and_log_error {
+    ($($arg:tt)+) => (
+        error!($($arg)+);
+        println!($($arg)+);
+    )
+}
+
 pub(crate) mod root;
 pub(crate) mod list;
 pub(crate) mod install;
@@ -8,6 +23,8 @@ pub(crate) mod whatis;
 
 use string_error::new_err;
 use seahorse::{Context};
+
+use log::{error};
 
 use std::sync::Mutex;
 
@@ -34,8 +51,8 @@ pub fn intercepting_errors(a: fn(&Context) -> Result<(), Box<dyn Error>>, on_err
         let res = a(c);
         match res {
             Err(e) => {
-                eprintln!("Failure!");
-                eprintln!("{}",e);
+                print_and_log_error!("Failure!");
+                print_and_log_error!("{}",e);
                 let exit_code = on_error(e);
                 *(EXIT_CODE.lock()
                     .expect(&*format!("Could not report exit code nicely: exit code was {} but panicked instead",exit_code))) = exit_code;

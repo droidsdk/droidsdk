@@ -3,6 +3,8 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 
+use log::{debug, info};
+
 pub struct SdkManCandidate {
     readable_name: String,
     version: String,
@@ -19,10 +21,16 @@ impl Display for SdkManCandidate {
 }
 
 pub fn fetch_candidates() -> Result<Vec<Box<SdkManCandidate>>, Box<dyn Error>> {
+    info!("Fetching available candidates");
+
     // TODO: extract URL (to config? to env var?)
     let url = "https://api.sdkman.io/2/candidates/list";
-    let body = reqwest::blocking::get(url)
-        .unwrap().text().unwrap();
+
+    info!("Call to {}", url);
+    let response = reqwest::blocking::get(url)?;
+    info!("Call completed with code {}", response.status().as_u16());
+    let body = response.text()?;
+    debug!("Body: \n{}", body);
 
     const HEADER_REGEX : &str = r"(?x)
         -+?\n                     # candidate separator

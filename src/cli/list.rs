@@ -6,6 +6,8 @@ use crate::engine::filesystem::get_installed_candidate_versions;
 use crate::cli::intercepting_errors;
 use std::error::Error;
 
+use log::info;
+
 pub fn build_cli_list() -> Command {
     Command::new("list")
         .usage("list [sdk-name]")
@@ -23,14 +25,14 @@ pub fn exec_list(c: &Context) -> Result<(), Box<dyn Error>> {
         let os_and_arch = get_current_os_and_arch();
         let current_version = c.args[1].clone(); // TODO
         let installed_versions = get_installed_candidate_versions(candidate_name.clone());
-        println!("Listing versions for [{}] {}", os_and_arch, candidate_name);
+        print_and_log_info!("Listing versions for [{}] {}", os_and_arch, candidate_name);
         let mut versions = if candidate_name == "java" {
             fetch_versions_java(candidate_name, os_and_arch, current_version, Vec::from(installed_versions))?
         } else {
             fetch_versions(candidate_name, os_and_arch, current_version, Vec::from(installed_versions))?
         };
         if c.bool_flag("mine") {
-            println!("Only installed versions will be listed (--mine flag)");
+            print_and_log_info!("Only installed versions will be listed (--mine flag)");
             versions = versions.into_iter().filter(|it| {
                 it.installed || it.local_only || it.selected
             }).collect()
@@ -39,11 +41,11 @@ pub fn exec_list(c: &Context) -> Result<(), Box<dyn Error>> {
             println!("{}", v)
         }
     } else {
-        println!("Listing available SDKits...");
+        print_and_log_info!("Listing available SDKits...");
         println!("Use whatis [candidate] for more info");
         let result = fetch_candidates()?;
         for candidate in result {
-            println!("{}", candidate.candidate_name)
+            print_and_log_info!("{}", candidate.candidate_name);
         }
     }
     Ok(())

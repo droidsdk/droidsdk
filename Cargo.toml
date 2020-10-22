@@ -24,3 +24,8 @@ zip = "0.5.8"
 lazy_static = "1.4.0"
 
 cfg-if = "0.1.10"
+
+chrono = "0.4"
+
+log = "0.4" # log API
+fern = "0.5" # log implementation

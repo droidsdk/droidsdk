@@ -5,6 +5,9 @@ use std::fmt;
 use std::cmp::{Ordering};
 use std::num::ParseIntError;
 
+use log::{info, debug};
+
+#[derive(Debug)]
 pub struct SdkManCandidateVersion {
     pub version: String,
     pub identifier: String,
@@ -23,11 +26,17 @@ impl Display for SdkManCandidateVersion {
 }
 
 pub fn fetch_versions(sdkit: String, os_and_arch: String, current_ver: String, installed_vers: Vec<String>) -> Result<Vec<Box<SdkManCandidateVersion>>, Box<dyn Error>> {
+    info!("Fetching versions for {} {}", os_and_arch, sdkit);
+
     // TODO: extract URL (to config? to env var?)
     let url = format!("https://api.sdkman.io/2/candidates/{}/{}/versions/list?current={}&installed={}",
                       sdkit, os_and_arch, current_ver, installed_vers.join(","));
-    let body = reqwest::blocking::get(&url)
-        .unwrap().text().unwrap();
+
+    info!("Call to {}", url);
+    let response = reqwest::blocking::get(&url)?;
+    info!("Call completed with code {}", response.status().as_u16());
+    let body = response.text()?;
+    debug!("Body: \n{}", body);
 
     const HEADER_REGEX : &str = r"(?x)
         (?:(?P<selected>>)|\s)                   # maybe `> selected` otherwise space
@@ -37,41 +46,58 @@ pub fn fetch_versions(sdkit: String, os_and_arch: String, current_ver: String, i
         (?P<version>\w[^\ ]*)                    # version identifier";
     let regex = Regex::new(HEADER_REGEX).unwrap();
     let mut result: Vec<Box<SdkManCandidateVersion>> = regex.captures_iter(&*body).map(|cap| {
-        return Box::new(SdkManCandidateVersion{
+        let rv = Box::new(SdkManCandidateVersion{
             version: cap["version"].to_string(),
             identifier: cap["version"].to_string(),
             selected: cap.name("selected").is_some(),
             installed: cap.name("installed").is_some(),
             local_only: cap.name("local").is_some()
-        })
+        });
+        debug!("Parsed version {}", rv);
+        return rv;
     }).collect();
+
+    debug!("List before sorting: \n{:?}", result);
     result.sort_by(|a, b| a.version.cmp(&b.version));
+    info!("Done: \n{:?}", result);
+
     return Ok(result);
 }
 
 pub fn fetch_versions_java(sdkit: String, os_and_arch: String, current_ver: String, installed_vers: Vec<String>) -> Result<Vec<Box<SdkManCandidateVersion>>, Box<dyn Error>> {
+    info!("Fetching versions for {} Java (requires special handling)", os_and_arch);
+
     // TODO: extract URL (to config? to env var?)
     let url = format!("https://api.sdkman.io/2/candidates/{}/{}/versions/list?current={}&installed={}",
                       sdkit, os_and_arch, current_ver, installed_vers.join(","));
-    let body = reqwest::blocking::get(&url)
-        .unwrap().text().unwrap();
+
+    info!("Call to {}", url);
+    let response = reqwest::blocking::get(&url)?;
+    info!("Call completed with code {}", response.status().as_u16());
+    let body = response.text()?;
+    debug!("Body: \n{}", body);
 
     let lines_iter = body.split('\n').into_iter();
     let count = lines_iter.clone().count();
     let lines = lines_iter.take(count-6).skip(5).collect::<Vec<&str>>();
 
     let mut rv: Vec<Box<SdkManCandidateVersion>> = lines.into_iter().map( |line| {
+        debug!("Parsing line {}", line);
         let csv : Vec<&str> = line.split("|").map(|it| it.trim()).collect();
-        Box::new(SdkManCandidateVersion {
+        let rv = Box::new(SdkManCandidateVersion {
             version: csv[2].to_string(),
             identifier: csv[5].to_string(),
             selected: csv[1] == ">>>",
             installed: csv[4] == "installed",
             local_only: csv[4] == "local only"
-        })
+        });
+        debug!("Parsed as {}", rv);
+        return rv;
     }).collect();
 
+    debug!("List before sorting: \n{:?}", rv);
     rv.sort_by(|a, b| comp_versions(a.version.clone(), b.version.clone()));
+    info!("Done: \n{:?}", rv);
 
     return Ok(rv);
 }
@@ -80,7 +106,6 @@ fn comp_versions(a: String, b: String) -> Ordering {
     if a.is_empty() && b.is_empty() {
         return a.cmp(&b)
     }
-
 
     let a_parts = extract_leading_version_chunk(a);
     let b_parts = extract_leading_version_chunk(b);

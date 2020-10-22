@@ -11,6 +11,8 @@ use std::error::Error;
 use string_error::new_err;
 use std::thread::JoinHandle;
 
+use log::{info, error};
+
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
     //  (do we actually want to run downloaded .sh scripts?)
@@ -19,6 +21,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
 
     let install_path = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone())
         .to_str().unwrap().to_string());
+    print_and_log_info!("Will install to {:?}", install_path);
 
     if install_path.exists() {
         return Err(new_err(&*format!("Candidate already installed (path {} exists)", install_path.to_str().unwrap())));
@@ -27,7 +30,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     // call SDKMAN! API which redirects us to the direct download link for the specified SDKit archive
     let url = format!("https://api.sdkman.io/2/broker/download/{}/{}/{}",
                       sdkit, version, os_and_arch);
-    println!("GET {}", url);
+    print_and_log_info!("Calling {}", url);
     let client = reqwest::blocking::ClientBuilder::new()
         .redirect(Policy::none()) // doing redirects manually
         .build().expect("failed to create client");
@@ -36,14 +39,15 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     ).unwrap();
     let headers = resp.headers();
 
-    // mkdirs ./app-name/archives
-    ensure_dir_exists("archives".to_string())?;
-
     // follow the redirect
     if resp.status() != 302 {
         return Err(new_err(&*format!("Did not receive a redirect from SDKMAN! server (status code {})", resp.status())));
     }
     let redirect = headers.get("location").unwrap().to_str().unwrap().to_string();
+    print_and_log_info!("Will download from {}", redirect);
+
+    // mkdirs ./app-name/archives
+    ensure_dir_exists("archives".to_string())?;
 
     // TODO there's probably a crate that does this, and better:
     // obtain the filename from the URL we've been redirected to
@@ -55,20 +59,20 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     let dl_path_ = dl_path.clone();
 
     if !dl_path.exists() {
-        println!(
+        print_and_log_info!(
             "Downloading {} {} {}\n\
             from {}\n\
             to {}",
             sdkit, version, os_and_arch, redirect, dl_path.to_str().unwrap().to_string());
         download_archive(redirect, dl_path.clone())?;
-        println!("Download finished");
+        print_and_log_info!("Download finished");
     }else {
-        println!("Archive already exists: {}", dl_path.to_str().unwrap());
+        print_and_log_info!("Archive already exists: {}", dl_path.to_str().unwrap());
     }
 
     let tmp_path = get_workdir_subpath("tmp".to_string());
     if tmp_path.exists() {
-        println!("tmp dir exists - recreating (clearing)");
+        print_and_log_info!("tmp dir exists - recreating (clearing)");
         remove_dir_all(tmp_path)?;
     }
 
@@ -78,7 +82,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
             .to_str().unwrap().to_string()
     );
     create_dir_all(unpack_path.clone())?;
-    println!("Unpacking file...");
+    print_and_log_info!("Unpacking file...");
     if filename.ends_with(".tar.gz") {
         unpack_tar_gz_archive(&dl_path_, &unpack_path)
             .expect(&*format!("Failed unpacking .tar.gz archive at {}", dl_path.to_str().unwrap()))
@@ -95,7 +99,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     // so far all candidates i've looked at seem to follow this
     let unpacked_to_path = traverse_single_dirs(&unpack_path)?;
 
-    println!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
+    print_and_log_info!("Copying from {} to {}...", unpacked_to_path.to_str().unwrap(), install_path.to_str().unwrap());
 
     create_dir_all(install_path.clone())?;
     #[cfg(target_family = "windows")] {
@@ -107,7 +111,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     }
     std::fs::rename(unpacked_to_path, install_path)?;
 
-    println!("Unpack complete.");
+    print_and_log_info!("Unpack complete.");
 
     Ok(())
 }
@@ -158,7 +162,7 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
     // TODO this format is ugly and unwieldy. need to find a crate for this or write our own solution
     //  definitely need: %progress, MB progress, MB total, download speed
     while downloaded.load(Ordering::SeqCst) < *arc_filesize {
-        println!("Downloading... {}/{}", downloaded.load(Ordering::SeqCst), *arc_filesize);
+        print_and_log_info!("Downloading... {}/{}", downloaded.load(Ordering::SeqCst), *arc_filesize);
         thread::sleep(Duration::new(10, 0));
     }
 
