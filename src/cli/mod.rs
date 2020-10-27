@@ -20,6 +20,7 @@ pub(crate) mod list;
 pub(crate) mod install;
 pub(crate) mod use_;
 pub(crate) mod whatis;
+pub(crate) mod revert;
 
 use string_error::new_err;
 use seahorse::{Context};
