@@ -13,6 +13,8 @@ use std::thread::JoinHandle;
 
 use log::{info, error};
 use size_format::SizeFormatterBinary;
+use signal_hook::iterator::Signals;
+use signal_hook::SIGINT;
 
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
@@ -120,7 +122,9 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
     let filesize = resp.content_length().ok_or(new_err("Could not read Content Length"))?;
     let arc_filesize = Arc::new(filesize);
 
-    let mut out = File::create(dl_path)?;
+    let dl_path_ref = &dl_path; // Rust, stop it. Rust.
+
+    let mut out = File::create(dl_path.clone())?;
 
     let downloaded = Arc::new(AtomicU64::new(0));
 
@@ -158,11 +162,11 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
     };
 
     // the other (current) thread outputs this progress every second to the console
-    // TODO this format is ugly and unwieldy. need to find a crate for this or write our own solution
-    //  definitely need: %progress, MB progress, MB total, download speed
+    // TODO need to check if there's a crate that maybe does a better job
     let mut last_downloaded = 0;
     let output_period = 10 /*seconds*/;
     let filesize_format = SizeFormatterBinary::new(*arc_filesize);
+    let signals = Signals::new(&[SIGINT])?;
     loop {
         let downloaded_local = downloaded.load(Ordering::SeqCst);
         if downloaded_local > *arc_filesize { break; }
@@ -176,6 +180,17 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
             SizeFormatterBinary::new(downloaded_local), filesize_format, percent, SizeFormatterBinary::new(bps));
 
         last_downloaded = downloaded_local;
+
+        // doing this in a parallel thread would be cleaner but the moons of Jupiter aren't
+        // aligned correctly rn for me to bother with Rust's threading
+        for sig in signals.pending() {
+            if dl_path.exists() {
+                print_and_log_error!("Partially downloaded archive will be deleted.");
+                std::fs::remove_file(dl_path_ref);
+            }
+            return Err(new_err("Interrupted by SIGINT."));
+        }
+
         thread::sleep(Duration::new(output_period, 0));
     }
 
