@@ -12,6 +12,7 @@ use string_error::new_err;
 use std::thread::JoinHandle;
 
 use log::{info, error};
+use size_format::SizeFormatterBinary;
 
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
@@ -84,11 +85,9 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
     create_dir_all(unpack_path.clone())?;
     print_and_log_info!("Unpacking file...");
     if filename.ends_with(".tar.gz") {
-        unpack_tar_gz_archive(&dl_path_, &unpack_path)
-            .expect(&*format!("Failed unpacking .tar.gz archive at {}", dl_path.to_str().unwrap()))
+        unpack_tar_gz_archive(&dl_path_, &unpack_path)?
     } else if filename.ends_with(".zip") {
-        unpack_zip_archive(&dl_path_, &unpack_path)
-            .expect(&*format!("Failed unpacking .zip archive at {}", dl_path.to_str().unwrap()))
+        unpack_zip_archive(&dl_path_, &unpack_path)?
     } else {
         return Err(new_err(&*format!("File {} is of unknown filetype", filename)))
     };
@@ -161,9 +160,23 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
     // the other (current) thread outputs this progress every second to the console
     // TODO this format is ugly and unwieldy. need to find a crate for this or write our own solution
     //  definitely need: %progress, MB progress, MB total, download speed
-    while downloaded.load(Ordering::SeqCst) < *arc_filesize {
-        print_and_log_info!("Downloading... {}/{}", downloaded.load(Ordering::SeqCst), *arc_filesize);
-        thread::sleep(Duration::new(10, 0));
+    let mut last_downloaded = 0;
+    let output_period = 10 /*seconds*/;
+    let filesize_format = SizeFormatterBinary::new(*arc_filesize);
+    loop {
+        let downloaded_local = downloaded.load(Ordering::SeqCst);
+        if downloaded_local > *arc_filesize { break; }
+
+        let percent = (downloaded_local as f64) / (*arc_filesize as f64) * 100.0;
+
+        let downloaded_since_last_iteration = downloaded_local - last_downloaded;
+        let bps = downloaded_since_last_iteration / output_period;
+
+        print_and_log_info!("Downloading... {}B/{}B {:.2}% at {}B/s",
+            SizeFormatterBinary::new(downloaded_local), filesize_format, percent, SizeFormatterBinary::new(bps));
+
+        last_downloaded = downloaded_local;
+        thread::sleep(Duration::new(output_period, 0));
     }
 
     copy_thread.join().expect("Join on download thread failed");

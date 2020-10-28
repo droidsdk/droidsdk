@@ -29,3 +29,5 @@ chrono = "0.4"
 
 log = "0.4" # log API
 fern = "0.5" # log implementation
+
+size_format = "1.0.2"

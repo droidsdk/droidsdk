@@ -84,7 +84,7 @@ pub fn unpack_tar_gz_archive(path_to_archive: &Path, target_folder: &Path) -> Re
     let tar_gz = File::open(path_to_archive).unwrap();
     let tar = GzDecoder::new(tar_gz);
     let mut archive = Archive::new(tar);
-    archive.unpack(target_folder).unwrap();
+    archive.unpack(target_folder)?;
 
     return Ok(())
 }
