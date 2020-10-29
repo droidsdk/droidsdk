@@ -2,12 +2,12 @@
 # (doing it from within Rust is practically impossible)
 
 setvars_path="$HOME/.droidsdk/setvars.sh"
+dsdk_install_dir=$(dirname "${BASH_SOURCE[0]}")
 
 function dsdk() {
   rm "$setvars_path" > /dev/null 2>&1
 
-  # TODO: don't hardcode cli exec path
-  ./target/debug/droidsdk "$@" || {
+  "${dsdk_install_dir}/target/debug/droidsdk" "$@" || {
     echo 'Failed invoking exec' ;
     return 1;
   }

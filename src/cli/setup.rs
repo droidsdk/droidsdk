@@ -6,7 +6,7 @@ use crate::engine::setup;
 
 use log::info;
 use string_error::new_err;
-use crate::engine::setup::setup_on_windows;
+use crate::engine::setup::{setup_on_windows, setup_on_linux_bash};
 
 pub fn build_cli_setup() -> Command {
     Command::new("setup")
@@ -25,8 +25,8 @@ pub fn exec_setup(c: &Context) -> Result<(), Box<dyn Error>> {
 
     match &*installation_variant {
         "linux" => {
-            // TODO!
-            return Err(new_err("linux TODO!"))
+            print_and_log_info!("Attempting to setup on linux");
+            setup_on_linux_bash()?;
         },
         "windows" => {
             print_and_log_info!("Attempting to setup on windows");
@@ -38,5 +38,6 @@ pub fn exec_setup(c: &Context) -> Result<(), Box<dyn Error>> {
     };
 
     print_and_log_info!("Setup finished without errors");
+    print_and_log_info!("Please now source from your terminal's startup script or just restart the terminal");
     Ok(())
 }
