@@ -8,6 +8,7 @@ use std::error::Error;
 use string_error::new_err;
 
 use log::{debug, info, error};
+use crate::engine::operating_system::get_fs_and_path_separator;
 
 pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dyn Error>> {
     let path_to_sdkit = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone()).to_str().unwrap().to_string());
@@ -29,7 +30,7 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dy
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
     backup_path_file.write_all(env_path.clone().as_ref())?;
 
-    let (fs_separator, path_separator) = get_fs_and_path_separator();
+    let (_, path_separator) = get_fs_and_path_separator();
 
     env_path = format!("{}{}{}", &*new_path.to_str().unwrap().to_string(), path_separator, env_path);
 
@@ -46,7 +47,7 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
     backup_path_file.write_all(env_path.clone().as_ref())?;
 
-    let (fs_separator, path_separator) = get_fs_and_path_separator();
+    let (_, path_separator) = get_fs_and_path_separator();
 
     let rel_path = PathBuf::from("candidates").join(sdkit.clone()).to_str().unwrap().to_string();
     let abs_path = get_workdir_subpath(rel_path);
@@ -63,14 +64,14 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
             }
     }).collect::<Vec<&str>>().join(&path_separator);
 
-    if(found_amount > 1) {
+    if found_amount > 1 {
         print_and_log_error!("Multiple dsdk installs of {} were found in PATH!", sdkit);
         print_and_log_error!("This is unexpected and likely an error condition");
         print_and_log_error!("dsdk will remove all of these entries, however, if that's incorrect \
         you can retrieve the old PATH from the backup file");
     }
 
-    if(found_amount < 1) {
+    if found_amount < 1 {
         print_and_log_error!("No dsdk installs of {} were found in PATH!", sdkit);
         return Err(new_err("dsdk revert: found_amount < 1"))
     }
@@ -79,19 +80,4 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
     debug!("New PATH value will be: {}", env_path);
 
     Ok(())
-}
-
-fn get_fs_and_path_separator() -> (String, String) {
-    let fs_separator: &str;
-    let path_separator: &str;
-    cfg_if::cfg_if! {
-        if #[cfg(target_family="unix")] {
-            fs_separator = r"/";
-            path_separator = ":";
-        } else {
-            fs_separator = r"\\";
-            path_separator = ";";
-        }
-    };
-    return (fs_separator.to_string(), path_separator.to_string());
 }

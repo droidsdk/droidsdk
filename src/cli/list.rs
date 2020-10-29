@@ -1,7 +1,7 @@
 use seahorse::{Command, Flag, Context, FlagType};
 use crate::sdkman_api::candidates::fetch_candidates;
 use crate::sdkman_api::versions::{fetch_versions, fetch_versions_java};
-use crate::engine::operating_system::get_current_os_and_arch;
+use crate::engine::operating_system::{get_current_os_and_arch, get_sdkit_version_in_use};
 use crate::engine::filesystem::get_installed_candidate_versions;
 use crate::cli::intercepting_errors;
 use std::error::Error;
@@ -23,7 +23,7 @@ pub fn exec_list(c: &Context) -> Result<(), Box<dyn Error>> {
     if c.args.len() > 0 {
         let candidate_name = c.args[0].clone();
         let os_and_arch = get_current_os_and_arch();
-        let current_version = c.args[1].clone(); // TODO
+        let current_version = get_sdkit_version_in_use(candidate_name.clone())?.unwrap_or("NOT_INSTALLED".to_string());
         let installed_versions = get_installed_candidate_versions(candidate_name.clone());
         print_and_log_info!("Listing versions for [{}] {}", os_and_arch, candidate_name);
         let mut versions = if candidate_name == "java" {
