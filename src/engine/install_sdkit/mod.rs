@@ -13,8 +13,12 @@ use std::thread::JoinHandle;
 
 use log::{info, error};
 use size_format::SizeFormatterBinary;
-use signal_hook::iterator::Signals;
-use signal_hook::SIGINT;
+
+#[cfg(target_family = "unix")]
+use {
+    signal_hook::iterator::Signals,
+    signal_hook::SIGINT,
+};
 
 pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
@@ -166,6 +170,7 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
     let mut last_downloaded = 0;
     let output_period = 10 /*seconds*/;
     let filesize_format = SizeFormatterBinary::new(*arc_filesize);
+    #[cfg(target_family = "unix")]
     let signals = Signals::new(&[SIGINT])?;
     loop {
         let downloaded_local = downloaded.load(Ordering::SeqCst);
@@ -183,12 +188,14 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
 
         // doing this in a parallel thread would be cleaner but the moons of Jupiter aren't
         // aligned correctly rn for me to bother with Rust's threading
-        for sig in signals.pending() {
-            if dl_path.exists() {
-                print_and_log_error!("Partially downloaded archive will be deleted.");
-                std::fs::remove_file(dl_path_ref);
+        #[cfg(target_family = "unix")] { // TODO for windows
+            for sig in signals.pending() {
+                if dl_path.exists() {
+                    print_and_log_error!("Partially downloaded archive will be deleted.");
+                    std::fs::remove_file(dl_path_ref);
+                }
+                return Err(new_err("Interrupted by SIGINT."));
             }
-            return Err(new_err("Interrupted by SIGINT."));
         }
 
         thread::sleep(Duration::new(output_period, 0));
