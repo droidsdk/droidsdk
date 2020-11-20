@@ -25,13 +25,7 @@ pub fn setup_on_windows() -> Result<(), Box<dyn Error>> {
             //  for now, we only create a new file and fail instead if it exists.
             return Err(new_err("CMD startup bat file already exists. Will not interfere."));
         }
-        print_and_log_info!("Creating a CMD startup script...");
-        let mut startup_file = File::create(path_to_startup_bat.clone())?;
-        let data = format!("doskey dsdk={}\\dsdk.bat $*", current_dir.to_str().unwrap());
-        startup_file.write_all(data.as_bytes())?;
-        print_and_log_info!("Created in {}", path_to_startup_bat.to_str().unwrap());
 
-        print_and_log_info!("Linking the CMD startup script via the Registry...");
         // HKEY_LOCAL_MACHINE\Software\Microsoft\Command Processor
         let hkcu = RegKey::predef(HKEY_LOCAL_MACHINE);
         let path = Path::new("Software").join("Microsoft").join("Command Processor");
@@ -42,11 +36,33 @@ pub fn setup_on_windows() -> Result<(), Box<dyn Error>> {
             REG_OPENED_EXISTING_KEY => { debug!("Opened 'Command Processor' reg key"); }
         }
 
-        // TODO check if the value is already set
+        if let Ok(v) = key.get_raw_value("AutoRun") {
+            if !format!("{:?}", v).is_empty() {
+                return Err(new_err(
+                    "AutoRun key is already set in registry.\n\
+                        Seems like you already have an autorun CMD script set up.\n\
+                        Will not interfere. Please install manually.\n"
+                ));
+            }
+        }
+
+        if path_to_startup_bat.clone().exists() {
+            return Err(new_err(
+                "cmd-init.bat already exists. Will not interfere. Please install manually."
+            ));
+        }
+
+        print_and_log_info!("Creating a CMD startup script...");
+        let mut startup_file = File::create(path_to_startup_bat.clone())?;
+        let data = format!("doskey dsdk={}\\dsdk.bat $*", current_dir.to_str().unwrap());
+        startup_file.write_all(data.as_bytes())?;
+        print_and_log_info!("Created in {}", path_to_startup_bat.to_str().unwrap());
+
+        print_and_log_info!("Linking the CMD startup script via the Registry...");
         key.set_value("AutoRun", &(path_to_startup_bat.to_str().unwrap()))?;
         print_and_log_info!("Linked");
 
-        return Ok(())
+        return Ok(());
     }
 
     return Err(new_err("This binary was not built for Windows!"));
