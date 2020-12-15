@@ -7,3 +7,11 @@ jobs:
   allow_failures:
     - rust: nightly
   fast_finish: true
+deploy:
+  provider: releases
+  api_key:
+    secure: "m6kx9vrRv4LzMCeO27gJXddMFvO0KCz1ES2trH0ysVlXeuyTSVKrCbnFpY3f/bc+axIgmS1Aw5gZ7WaR6enV6fYqe2LFl1CM2aiwbfCNSVswnOZ+/ygFiwhstDj752afXOGEZRE2+S57UGbPvcatNTmmOvjWV4PrOUtdBaWpxSgk8pVisb/22MzBXaT7WnkUCGO2oWDH3HoPokjZYFXfPuIo9DgLhUG8hfrVuJsJ0Y1ihaQP5t0qCQwKESY5aKoWcTPQ9XaIkUm2n2KfAUA4UfJt74dhnRDbGySCFvZxRsUBDa0ughqOeaaMhD6iVAGrClg4b23CnPYhzaWI9hmRwYAa/cgb4dMujvJaO2Ob52GZk29IzkUd7HikzWoLG6XRu3Zwl3+5dMP0XiPa4gyeoCDLaDIaQrPOeOd7SIsq633X8c0ODvmHSGGyyC6fGWWpj5OBXSq5Nwukthb4Hu4VFdVnQAgg91gn9CfiFpQhjjoLcJiolD0A67rkFoMPYw9cDTNT/zdwYtw7lhWuicN//l6e+6vnVXNl5luYLM1yuO3/MXW5EpaM3nioeK2xKsHh0vXwAXDsnUwQroMpHs8msWZ+Psu3KFbNZuZNY0+8pcbf2eAI1lIGPptf3mhBOusPRcxHSgywYzn/ARns8nDSyZETi2a0GpsaLopdDiMCBL8="
+  file: "target/debug/droidsdk"
+  skip_cleanup: true
+  on:
+    tags: true
