@@ -22,7 +22,7 @@ call && (
 
     REM TODO: don't hardcode cli exec path
 
-    %cd%\target\debug\droidsdk %args% || (
+    %cd%\droidsdk %args% || (
         echo Failed invoking exec
         exit /b 1
     );

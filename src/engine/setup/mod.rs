@@ -83,7 +83,7 @@ pub fn setup_on_linux_bash() -> Result<(), Box<dyn Error>> {
 
         let p = current_dir.to_str().unwrap();
         print_and_log_info!("Appending to {}", path_to_startup_script.clone().to_str().unwrap());
-        if let Err(e) = writeln!(file, "[[ -s \"{}/dsdk-init.sh\" ]] && source \"{}/dsdk-init.sh\"", p, p) {
+        if let Err(e) = writeln!(file, "[[ -s \"{}/dsdk.sh\" ]] && source \"{}/dsdk.sh\"", p, p) {
             return Err(Box::new(e));
         }
         print_and_log_info!("Successfully appended.");

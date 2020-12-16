@@ -7,7 +7,7 @@ dsdk_install_dir=$(dirname "${BASH_SOURCE[0]}")
 function dsdk() {
   rm "$setvars_path" > /dev/null 2>&1
 
-  "${dsdk_install_dir}/target/debug/droidsdk" "$@" || {
+  "${dsdk_install_dir}/droidsdk" "$@" || {
     echo 'Failed invoking exec' ;
     return 1;
   }
