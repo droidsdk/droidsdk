@@ -17,7 +17,7 @@ doesn't fail, you're probably fine.
 
 ## Write a wrapper shell script for your shell
 
-See ``dsdk-init.sh`` for a Linux/bash wrapper script example and ``dsdk.bat`` for a Windows/CMD example.
+See ``dsdk.sh`` for a Linux/bash wrapper script example and ``dsdk.bat`` for a Windows/CMD example.
 Or, alternatively, see the following pseudocode:
 
 ```

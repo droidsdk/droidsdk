@@ -12,7 +12,7 @@ directory.
 Open ``~/.bashrc`` (or the respective startup script for your shell) and add the following lines
 
 ```shell script
-[[ -s "${DROIDSDK_INSTALL}/dsdk-init.sh" ]] && source "${DROIDSDK_INSTALL}/dsdk-init.sh"
+[[ -s "${DROIDSDK_INSTALL}/dsdk.sh" ]] && source "${DROIDSDK_INSTALL}/dsdk-init.sh"
 ```
 
 Replace ``${DROIDSDK_INSTALL}`` with the path to your installation.
