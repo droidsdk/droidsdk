@@ -1,5 +1,5 @@
 use crate::engine::filesystem::{ensure_dir_exists, get_workdir_subpath, unpack_tar_gz_archive, unpack_zip_archive, traverse_single_dirs};
-use std::fs::{File, create_dir_all, remove_dir_all};
+use std::fs::{File, create_dir_all, remove_dir_all, remove_file};
 use std::{thread};
 use reqwest::redirect::Policy;
 use std::time::Duration;
@@ -14,19 +14,48 @@ use std::thread::JoinHandle;
 use log::{info, error};
 use size_format::SizeFormatterBinary;
 
+use dialoguer::Confirm;
+
 #[cfg(target_family = "unix")]
 use {
     signal_hook::iterator::Signals,
     signal_hook::SIGINT,
 };
 
-pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
+pub fn remove_sdkit(sdkit: String, version: String, os_and_arch: String) -> Result<(), Box<dyn Error>> {
+    let path_to_sdkit = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone()).to_str().unwrap().to_string());
+    print_and_log_info!("Checking for sdkit in {:?}", path_to_sdkit);
+    if !path_to_sdkit.exists() {
+        return Err(new_err(&*format!("{} {} does not seem to be installed.", sdkit, version)));
+    }
+
+    if !(Confirm::new()
+        .with_prompt(&*format!("Really remove {} {} {}?", os_and_arch, sdkit, version))
+        .interact()?) {
+            return Err(new_err("Remove: operation cancelled by user."));
+    }
+
+    remove_dir_all(path_to_sdkit);
+
+    Ok(())
+}
+
+pub struct InstallSDKitRequest {
+    pub sdkit: String,
+    pub version: String,
+    pub os_and_arch: String,
+
+    // if an archive had already been downloaded, should we use it?
+    pub accept_existing_archive: bool
+}
+
+pub fn install_sdkit(rq: InstallSDKitRequest) -> Result<(), Box<dyn Error>> {
     // TODO: execution of pre- and post-install hooks
     //  (do we actually want to run downloaded .sh scripts?)
 
     // TODO: way too much manual code here. need to go through crates.io and look for existing solutions
 
-    let install_path = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone())
+    let install_path = get_workdir_subpath(PathBuf::from("candidates").join(rq.sdkit.clone()).join(rq.version.clone())
         .to_str().unwrap().to_string());
     print_and_log_info!("Will install to {:?}", install_path);
 
@@ -36,7 +65,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
 
     // call SDKMAN! API which redirects us to the direct download link for the specified SDKit archive
     let url = format!("https://api.sdkman.io/2/broker/download/{}/{}/{}",
-                      sdkit, version, os_and_arch);
+                      rq.sdkit, rq.version, rq.os_and_arch);
     print_and_log_info!("Calling {}", url);
     let client = reqwest::blocking::ClientBuilder::new()
         .redirect(Policy::none()) // doing redirects manually
@@ -62,19 +91,30 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
         .split("/").last() // filename.ext?maybe=params
         .unwrap().split("?").next() // filename.ext
         .unwrap().to_string();
+    if filename.len() == 0 { return Err(new_err("Filename cannot be empty")); }
     let dl_path = get_workdir_subpath("archives".to_string()).join(filename.to_string());
     let dl_path_ = dl_path.clone();
 
-    if !dl_path.exists() {
+    let mut should_download = false;
+    if dl_path.exists() {
+        print_and_log_info!("Archive already exists: {}", dl_path.to_str().unwrap());
+        if !rq.accept_existing_archive {
+            print_and_log_info!("Caller requested us to ignore the existing archive. Deleting...");
+            remove_file(dl_path.clone());
+            should_download = true;
+        }
+    } else {
+        should_download = true;
+    }
+
+    if should_download {
         print_and_log_info!(
             "Downloading {} {} {}\n\
             from {}\n\
             to {}",
-            sdkit, version, os_and_arch, redirect, dl_path.to_str().unwrap().to_string());
+            rq.sdkit, rq.version, rq.os_and_arch, redirect, dl_path.to_str().unwrap().to_string());
         download_archive(redirect, dl_path.clone())?;
         print_and_log_info!("Download finished");
-    }else {
-        print_and_log_info!("Archive already exists: {}", dl_path.to_str().unwrap());
     }
 
     let tmp_path = get_workdir_subpath("tmp".to_string());
@@ -85,7 +125,7 @@ pub fn install_sdkit(sdkit: String, version: String, os_and_arch: String) -> Res
 
     let unpack_path = get_workdir_subpath(
         PathBuf::from("tmp")
-            .join(format!("{}_{}", sdkit, version))
+            .join(format!("{}_{}", rq.sdkit, rq.version))
             .to_str().unwrap().to_string()
     );
     create_dir_all(unpack_path.clone())?;
@@ -174,7 +214,7 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
     let signals = Signals::new(&[SIGINT])?;
     loop {
         let downloaded_local = downloaded.load(Ordering::SeqCst);
-        if downloaded_local > *arc_filesize { break; }
+        if downloaded_local >= *arc_filesize { break; }
 
         let percent = (downloaded_local as f64) / (*arc_filesize as f64) * 100.0;
 
@@ -192,6 +232,7 @@ fn download_archive(url: String, dl_path: PathBuf) -> Result<(), Box<dyn Error>>
             for sig in signals.pending() {
                 if dl_path.exists() {
                     print_and_log_error!("Partially downloaded archive will be deleted.");
+                    print_and_log_error!("Download failed at {} out of {}", downloaded_local, filesize);
                     std::fs::remove_file(dl_path_ref);
                 }
                 return Err(new_err("Interrupted by SIGINT."));

@@ -18,6 +18,7 @@ macro_rules! print_and_log_error {
 pub(crate) mod root;
 pub(crate) mod list;
 pub(crate) mod install;
+pub(crate) mod remove;
 pub(crate) mod use_;
 pub(crate) mod whatis;
 pub(crate) mod revert;

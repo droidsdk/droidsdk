@@ -6,6 +6,7 @@ use crate::cli::use_::build_cli_use;
 use crate::cli::whatis::build_cli_whatis;
 use crate::cli::revert::build_cli_revert;
 use crate::cli::setup::build_cli_setup;
+use crate::cli::remove::build_cli_remove;
 
 pub fn build_cli_root() -> App {
     return App::new(env!("CARGO_PKG_NAME"))
@@ -20,6 +21,7 @@ pub fn build_cli_root() -> App {
         .command(build_cli_list())
 
         .command(build_cli_install())
+        .command(build_cli_remove())
 
         .command(build_cli_use())
         .command(build_cli_revert());
