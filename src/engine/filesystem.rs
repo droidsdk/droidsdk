@@ -46,6 +46,23 @@ pub fn get_installed_candidate_versions(candidate: String) -> Vec<String> {
     return rv;
 }
 
+pub fn get_installed_candidates() -> Vec<String> {
+    let path = get_workdir_subpath("candidates".to_string());
+    if !path.exists() {
+        return vec![]
+    }
+    let mut rv: Vec<String> = Vec::new();
+    read_dir(path.clone()).expect("Could not read candidate directory").for_each(|it| {
+        let child_item = it.expect(&*format!("Could not read some files in directory {}",path.to_str().unwrap()));
+        let child_item_metadata = child_item.metadata()
+            .expect(&*format!("Could not read metadata for item {}",child_item.path().to_str().unwrap()));
+        if child_item_metadata.is_dir() {
+            rv.push(child_item.file_name().to_str().unwrap().to_string());
+        }
+    });
+    return rv;
+}
+
 /// Traverses the chain of nested directories until arrives at a directory with stuff in it
 /// Returns that directory's path
 ///

@@ -1,6 +1,6 @@
 use std::env::var;
 use regex::Regex;
-use crate::engine::filesystem::{get_workdir_subpath, write_new_env_var_value};
+use crate::engine::filesystem::{get_workdir_subpath, write_new_env_var_value, get_installed_candidates, get_installed_candidate_versions};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -11,21 +11,33 @@ use log::{debug, info, error};
 use crate::engine::operating_system::get_fs_and_path_separator;
 
 pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dyn Error>> {
+    let sdkit = partial_sdkit_resolve(sdkit)?;
+    let version = partial_sdkit_version_resolve(sdkit.clone(), version)?;
+
     let path_to_sdkit = get_workdir_subpath(PathBuf::from("candidates").join(sdkit.clone()).join(version.clone()).to_str().unwrap().to_string());
     print_and_log_info!("Checking for sdkit in {:?}", path_to_sdkit);
     if !path_to_sdkit.exists() {
         return Err(new_err(&*format!("{} {} does not seem to be installed.", sdkit, version)));
     }
 
-    print_and_log_info!("Removing current dsdk {} from PATH", sdkit);
-    if let Err(some) = undo_set_sdkit_as_current(sdkit) {
-        // TODO match a specific error
-        print_and_log_error!("Failed to remove the candidate already in path. That is fine.");
-    }
-
     let mut env_path = var("PATH")?;
-    let new_path = path_to_sdkit.join("bin");
     debug!("Old PATH: {}", env_path);
+
+    print_and_log_info!("Removing current dsdk {} from PATH", sdkit);
+    match remove_sdkit_from_path(sdkit, env_path.clone()) {
+        Ok(new_path) => {
+            env_path = new_path;
+        },
+        Err(error) => {
+            // TODO match a specific error
+            // TODO are we sure this is always non-critical?
+            print_and_log_error!("Failed to remove the candidate already in path. \n\
+            This is not a critical error.");
+        },
+    }
+    debug!("PATH after removing: {}", env_path.clone());
+
+    let new_path = path_to_sdkit.join("bin");
 
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
     backup_path_file.write_all(env_path.clone().as_ref())?;
@@ -41,19 +53,31 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dy
 }
 
 pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
+    // technically we don't need this here (the regex handles it anyway), but just to be consistent:
+    let sdkit = partial_sdkit_resolve(sdkit)?;
+
     let mut env_path = var("PATH")?;
     debug!("Old PATH: {}", env_path);
 
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
     backup_path_file.write_all(env_path.clone().as_ref())?;
 
+    env_path = remove_sdkit_from_path(sdkit, env_path)?;
+
+    write_new_env_var_value("PATH".to_string(), env_path.clone());
+    debug!("New PATH value will be: {}", env_path);
+
+    Ok(())
+}
+
+fn remove_sdkit_from_path(sdkit: String, path_value: String) -> Result<String, Box<dyn Error>> {
     let (_, path_separator) = get_fs_and_path_separator();
 
     let rel_path = PathBuf::from("candidates").join(sdkit.clone()).to_str().unwrap().to_string();
     let abs_path = get_workdir_subpath(rel_path);
 
     let mut found_amount = 0;
-    let env_path = env_path.split(&path_separator).collect::<Vec<&str>>().into_iter()
+    let new_path_value = path_value.split(&path_separator).collect::<Vec<&str>>().into_iter()
         .filter(|it| {
             if it.starts_with(abs_path.to_str().unwrap()) {
                 print_and_log_info!("Found {} in PATH, will remove", abs_path.to_str().unwrap());
@@ -62,7 +86,7 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
             } else {
                 true
             }
-    }).collect::<Vec<&str>>().join(&path_separator);
+        }).collect::<Vec<&str>>().join(&path_separator);
 
     if found_amount > 1 {
         print_and_log_error!("Multiple dsdk installs of {} were found in PATH!", sdkit);
@@ -76,8 +100,47 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
         return Err(new_err("dsdk revert: found_amount < 1"))
     }
 
-    write_new_env_var_value("PATH".to_string(), env_path.clone());
-    debug!("New PATH value will be: {}", env_path);
+    Ok(new_path_value)
+}
 
-    Ok(())
+fn partial_sdkit_resolve(sdkit_partial: String) -> Result<String, Box<dyn Error>> {
+    let matches : Vec<String> = get_installed_candidates()
+        .into_iter()
+        .filter(|it| { it.starts_with(&sdkit_partial) })
+        .collect();
+
+    if matches.len() == 0 {
+        return Err(new_err(&*format!("No candidate matched {}", sdkit_partial)));
+    }
+    if matches.len() > 1 {
+        return Err(new_err(&*format!("Multiple candidates matched {}: \n {}", sdkit_partial, matches.join("\n"))));
+    }
+
+    let v = matches[0].clone();
+    if sdkit_partial != v {
+        print_and_log_info!("Resolved candidate \"{}\" to {}", sdkit_partial, v);
+    }
+
+    return Ok(v);
+}
+
+fn partial_sdkit_version_resolve(sdkit: String, version_partial: String) -> Result<String, Box<dyn Error>> {
+    let matches : Vec<String> = get_installed_candidate_versions(sdkit)
+        .into_iter()
+        .filter(|it| { it.starts_with(&version_partial) })
+        .collect();
+
+    if matches.len() == 0 {
+        return Err(new_err(&*format!("No candidate versions matched {}", version_partial)));
+    }
+    if matches.len() > 1 {
+        return Err(new_err(&*format!("Multiple candidate versions matched {}: \n{}", version_partial, matches.join("\n"))));
+    }
+
+    let v = matches[0].clone();
+    if version_partial != v {
+        print_and_log_info!("Resolved version {} to {}", version_partial, v);
+    }
+
+    return Ok(v);
 }
