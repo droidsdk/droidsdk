@@ -37,3 +37,5 @@ signal-hook = "0.1.16"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.7.0"
+
+json = "0.12.4"
