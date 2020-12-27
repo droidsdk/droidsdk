@@ -3,3 +3,4 @@ pub mod use_sdkit;
 pub(crate) mod filesystem;
 pub mod operating_system;
 pub mod setup;
+pub(crate) mod activity;

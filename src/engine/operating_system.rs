@@ -5,6 +5,7 @@ use std::error::Error;
 use std::env::var;
 
 use log::{info, error};
+use std::sync::Mutex;
 
 // returns a string specifying the operating system and architecture
 // in SDKMAN!'s specific format
@@ -51,3 +52,7 @@ pub fn get_sdkit_version_in_use(sdkit: String) -> Result<Option<String>, Box<dyn
 
     Ok(None)
 }
+
+lazy_static!(
+    pub static ref PATH_ENV_VAR : Mutex<String> = Mutex::new(std::env::var("PATH").unwrap());
+);

@@ -8,7 +8,7 @@ use std::error::Error;
 use string_error::new_err;
 
 use log::{debug, info, error};
-use crate::engine::operating_system::get_fs_and_path_separator;
+use crate::engine::operating_system::{get_fs_and_path_separator, PATH_ENV_VAR};
 
 pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dyn Error>> {
     let sdkit = partial_sdkit_resolve(sdkit)?;
@@ -20,13 +20,13 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dy
         return Err(new_err(&*format!("{} {} does not seem to be installed.", sdkit, version)));
     }
 
-    let mut env_path = var("PATH")?;
+    let mut env_path = PATH_ENV_VAR.lock().unwrap();;
     debug!("Old PATH: {}", env_path);
 
     print_and_log_info!("Removing current dsdk {} from PATH", sdkit);
     match remove_sdkit_from_path(sdkit, env_path.clone()) {
         Ok(new_path) => {
-            env_path = new_path;
+            *env_path = new_path;
         },
         Err(error) => {
             // TODO match a specific error
@@ -44,10 +44,7 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dy
 
     let (_, path_separator) = get_fs_and_path_separator();
 
-    env_path = format!("{}{}{}", &*new_path.to_str().unwrap().to_string(), path_separator, env_path);
-
-    write_new_env_var_value("PATH".to_string(), env_path.clone());
-    debug!("New PATH value will be: {}", env_path);
+    *env_path = format!("{}{}{}", &*new_path.to_str().unwrap().to_string(), path_separator, env_path);
 
     Ok(())
 }
@@ -56,15 +53,13 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
     // technically we don't need this here (the regex handles it anyway), but just to be consistent:
     let sdkit = partial_sdkit_resolve(sdkit)?;
 
-    let mut env_path = var("PATH")?;
+    let mut env_path = PATH_ENV_VAR.lock().unwrap();;
     debug!("Old PATH: {}", env_path);
 
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
     backup_path_file.write_all(env_path.clone().as_ref())?;
 
-    env_path = remove_sdkit_from_path(sdkit, env_path)?;
-
-    write_new_env_var_value("PATH".to_string(), env_path.clone());
+    *env_path = remove_sdkit_from_path(sdkit, (*env_path).clone())?;
     debug!("New PATH value will be: {}", env_path);
 
     Ok(())

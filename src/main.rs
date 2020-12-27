@@ -2,14 +2,19 @@
 extern crate lazy_static;
 
 #[macro_use]
+extern crate json;
+
+#[macro_use]
 mod cli;
 mod sdkman_api;
 mod engine;
 
-use cli::root::build_cli_root;
-
 use std::env;
 use std::process::exit;
+use crate::cli::build_cli_root;
+use engine::operating_system::PATH_ENV_VAR;
+use crate::engine::filesystem::write_new_env_var_value;
+use log::{debug, info};
 
 fn main() {
     fern::Dispatch::new()
@@ -36,5 +41,10 @@ fn main() {
     app.run(args);
     let error_code = *cli::EXIT_CODE.lock()
         .expect("Could not read error code");
+
+    let new_path = PATH_ENV_VAR.lock().unwrap();
+    write_new_env_var_value("PATH".to_string(), new_path.clone());
+    debug!("New PATH value will be: {}", new_path);
+
     exit(error_code);
 }
