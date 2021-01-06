@@ -23,6 +23,7 @@ pub(crate) mod whatis;
 pub(crate) mod revert;
 pub(crate) mod setup;
 pub(crate) mod activity;
+pub(crate) mod source;
 
 use string_error::new_err;
 use seahorse::{Context, App};
@@ -74,6 +75,7 @@ use crate::cli::revert::build_cli_revert;
 use crate::cli::setup::build_cli_setup;
 use crate::cli::remove::build_cli_remove;
 use crate::cli::activity::build_cli_activity;
+use crate::cli::source::build_cli_source;
 
 pub fn build_cli_root() -> App {
     return App::new(env!("CARGO_PKG_NAME"))
@@ -92,6 +94,7 @@ pub fn build_cli_root() -> App {
 
         .command(build_cli_use())
         .command(build_cli_revert())
+        .command(build_cli_source())
 
         .command(build_cli_activity());
 }

@@ -9,6 +9,7 @@ use string_error::new_err;
 
 use log::{debug, info, error};
 use crate::engine::operating_system::{get_fs_and_path_separator, PATH_ENV_VAR};
+use std::ops::Deref;
 
 pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dyn Error>> {
     let sdkit = partial_sdkit_resolve(sdkit)?;
@@ -42,9 +43,7 @@ pub fn set_sdkit_as_current(sdkit: String, version: String) -> Result<(), Box<dy
     let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
     backup_path_file.write_all(env_path.clone().as_ref())?;
 
-    let (_, path_separator) = get_fs_and_path_separator();
-
-    *env_path = format!("{}{}{}", &*new_path.to_str().unwrap().to_string(), path_separator, env_path);
+    *env_path = append_to_env_path(new_path.to_str().unwrap().to_string(), (*env_path).clone());
 
     Ok(())
 }
@@ -65,7 +64,7 @@ pub fn undo_set_sdkit_as_current(sdkit: String) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn remove_sdkit_from_path(sdkit: String, path_value: String) -> Result<String, Box<dyn Error>> {
+pub fn remove_sdkit_from_path(sdkit: String, path_value: String) -> Result<String, Box<dyn Error>> {
     let (_, path_separator) = get_fs_and_path_separator();
 
     let rel_path = PathBuf::from("candidates").join(sdkit.clone()).to_str().unwrap().to_string();
@@ -92,13 +91,17 @@ fn remove_sdkit_from_path(sdkit: String, path_value: String) -> Result<String, B
 
     if found_amount < 1 {
         print_and_log_error!("No dsdk installs of {} were found in PATH!", sdkit);
-        return Err(new_err("dsdk revert: found_amount < 1"))
     }
 
     Ok(new_path_value)
 }
 
-fn partial_sdkit_resolve(sdkit_partial: String) -> Result<String, Box<dyn Error>> {
+pub fn append_to_env_path(v: String, env_path: String) -> String {
+    let (_, path_separator) = get_fs_and_path_separator();
+    return format!("{}{}{}", v, path_separator, env_path);
+}
+
+pub fn partial_sdkit_resolve(sdkit_partial: String) -> Result<String, Box<dyn Error>> {
     let matches : Vec<String> = get_installed_candidates()
         .into_iter()
         .filter(|it| { it.starts_with(&sdkit_partial) })
@@ -119,7 +122,7 @@ fn partial_sdkit_resolve(sdkit_partial: String) -> Result<String, Box<dyn Error>
     return Ok(v);
 }
 
-fn partial_sdkit_version_resolve(sdkit: String, version_partial: String) -> Result<String, Box<dyn Error>> {
+pub fn partial_sdkit_version_resolve(sdkit: String, version_partial: String) -> Result<String, Box<dyn Error>> {
     let matches : Vec<String> = get_installed_candidate_versions(sdkit)
         .into_iter()
         .filter(|it| { it.starts_with(&version_partial) })

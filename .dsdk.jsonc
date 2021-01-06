@@ -1,0 +1,12 @@
+{
+    // this is a template project config file used for manual testing.
+    "projectId": "testProjectId",
+    "activities": {
+        "java7": {
+            "gradle": "2.2.1"
+        },
+        "java8": {
+            "gradle": "3.3"
+        }
+    }
+}

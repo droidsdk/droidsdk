@@ -2,7 +2,7 @@ use seahorse::{Command, Flag, Context, FlagType};
 use crate::sdkman_api::candidates::fetch_candidates;
 use crate::sdkman_api::versions::{fetch_versions, fetch_versions_java};
 use crate::engine::operating_system::{get_current_os_and_arch, get_sdkit_version_in_use};
-use crate::engine::filesystem::get_installed_candidate_versions;
+use crate::engine::filesystem::{get_installed_candidate_versions, get_app_workdir_path, get_workdir_subpath};
 use crate::cli::intercepting_errors;
 use std::error::Error;
 
@@ -11,6 +11,8 @@ use string_error::new_err;
 use crate::engine::activity::get_global_activities;
 use std::ops::Deref;
 use crate::engine::use_sdkit::set_sdkit_as_current;
+use std::fs::{OpenOptions, File};
+use std::io::Write;
 
 pub fn build_cli_begin() -> Command {
     Command::new("activity-begin")
@@ -21,6 +23,10 @@ pub fn build_cli_begin() -> Command {
 pub fn exec_begin(c: &Context) -> Result<(), Box<dyn Error>> {
     if c.args.len() > 0 {
         let activity = c.args[0].clone();
+
+        let mut current_activity_file = File::create(get_workdir_subpath("current_activity".to_string()))?;
+        current_activity_file.write_all(activity.as_ref());
+
         let conf = get_global_activities()?;
         // TODO: obtain current project here
         let project = "global";

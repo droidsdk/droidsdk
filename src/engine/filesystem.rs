@@ -168,3 +168,14 @@ cfg_if::cfg_if! {
         }
     }
 }
+
+pub fn create_symlink_to_dir(from: PathBuf, to: PathBuf) -> Result<(), Box<dyn Error>> {
+    cfg_if::cfg_if! {
+        if #[cfg(target_family="unix")] {
+            std::os::unix::fs::symlink(to, from)?;
+        } else {
+            std::os::windows::fs::symlink_dir(to, from)?;
+        }
+    }
+    Ok(())
+}
