@@ -10,7 +10,7 @@ use log::info;
 use std::fs::{File, read_to_string};
 use crate::engine::filesystem::get_workdir_subpath;
 use std::collections::HashMap;
-use crate::engine::environment_for_project::setup_environment_for_project;
+use crate::engine::environment_for_project::{setup_environment_for_project, update_candidates_in_path, add_to_watched_projects};
 
 pub fn build_cli_source() -> Command {
     Command::new("source")
@@ -32,12 +32,14 @@ pub fn exec_source(c: &Context) -> Result<(), Box<dyn Error>> {
 
     let pwd = std::env::current_dir()?;
     print_and_log_info!("PWD {}", pwd.to_str().unwrap().to_string());
-    let maybe_project_conf = get_project_conf(pwd)?;
+    let maybe_project_conf = get_project_conf(pwd.clone())?;
     if let Some(project_conf) = maybe_project_conf {
         project = project_conf;
     }
 
     print_and_log_info!("Sourcing environment for project {}", project.id);
-    setup_environment_for_project(current_activity, project)?;
+    let candidate_paths = setup_environment_for_project(current_activity, project)?;
+    update_candidates_in_path(candidate_paths)?;
+    add_to_watched_projects(pwd.clone())?;
     Ok(())
 }

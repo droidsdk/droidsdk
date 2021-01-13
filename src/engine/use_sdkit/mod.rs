@@ -1,6 +1,6 @@
 use std::env::var;
 use regex::Regex;
-use crate::engine::filesystem::{get_workdir_subpath, write_new_env_var_value, get_installed_candidates, get_installed_candidate_versions};
+use crate::engine::filesystem::{get_workdir_subpath, write_new_env_var_value, get_installed_candidates, get_installed_candidate_versions, get_app_workdir_path};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -94,6 +94,37 @@ pub fn remove_sdkit_from_path(sdkit: String, path_value: String) -> Result<Strin
     }
 
     Ok(new_path_value)
+}
+
+pub fn clear_path() -> Result<(), Box<dyn Error>> {
+    let mut env_path = PATH_ENV_VAR.lock().unwrap();;
+    debug!("Old PATH: {}", env_path);
+
+    let mut backup_path_file = File::create(get_workdir_subpath("path_backup".to_string()))?;
+    backup_path_file.write_all(env_path.clone().as_ref())?;
+
+    let (_, path_separator) = get_fs_and_path_separator();
+
+    let app_path = get_app_workdir_path();
+
+    let mut found_amount = 0;
+    let new_path_value = (*env_path).split(&path_separator).collect::<Vec<&str>>().into_iter()
+        .filter(|it| {
+            if it.starts_with(app_path.to_str().unwrap()) {
+                print_and_log_info!("Found {} in PATH, will remove", app_path.to_str().unwrap());
+                found_amount+=1;
+                false
+            } else {
+                true
+            }
+        }).collect::<Vec<&str>>().join(&path_separator);
+
+    print_and_log_info!("Removed {} entries from PATH", found_amount);
+
+    debug!("New PATH value will be: {}", new_path_value);
+    *env_path = new_path_value;
+
+    Ok(())
 }
 
 pub fn append_to_env_path(v: String, env_path: String) -> String {

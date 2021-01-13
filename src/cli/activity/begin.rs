@@ -8,11 +8,14 @@ use std::error::Error;
 
 use log::{debug, info};
 use string_error::new_err;
-use crate::engine::activity::get_global_activities;
+use crate::engine::activity::{get_global_activities, get_project_conf, Project};
 use std::ops::Deref;
 use crate::engine::use_sdkit::set_sdkit_as_current;
-use std::fs::{OpenOptions, File};
+use std::fs::{OpenOptions, File, read_to_string};
 use std::io::Write;
+use crate::engine::environment_for_project::{setup_environment_for_project, update_candidates_in_path, symlink_candidate};
+use std::path::PathBuf;
+use std::collections::HashMap;
 
 pub fn build_cli_begin() -> Command {
     Command::new("activity-begin")
@@ -28,15 +31,39 @@ pub fn exec_begin(c: &Context) -> Result<(), Box<dyn Error>> {
         current_activity_file.write_all(activity.as_ref());
 
         let conf = get_global_activities()?;
+
+
+
         // TODO: obtain current project here
         let project = "global";
         let activity_global = conf.get(&*activity).unwrap();
-        debug!("keys: {}", activity_global.per_project.keys().map(|s| &**s).collect::<Vec<_>>().join(", "));
         let deps = activity_global.per_project.get(project).unwrap();
+        let mut candidate_paths: HashMap<String, String> = HashMap::new();
         deps.into_iter().try_for_each::<_, Result<(), Box<dyn Error>>>(|dependency| {
-            let rv = set_sdkit_as_current(dependency.candidate.clone(), dependency.version.clone())?;
+            let rv = symlink_candidate(dependency.candidate.clone(), dependency.version.clone(), project.to_string())?;
+            candidate_paths.insert(dependency.candidate.clone(), rv);
+
             Ok(())
         })?;
+        update_candidates_in_path(candidate_paths)?;
+
+        let watched_projects_path = get_workdir_subpath("watched_projects".to_string());
+        let currently_watched = if watched_projects_path.exists() {
+            read_to_string(watched_projects_path.clone())?
+        } else { "".to_string() };
+        currently_watched.split("\n").into_iter()
+            .filter(|it| { !it.is_empty() } )
+            .try_for_each(|path| -> Result<(), Box<dyn Error>> {
+                let maybe_project_conf = get_project_conf(PathBuf::from(path))?;
+                if let Some(project_conf) = maybe_project_conf {
+                    setup_environment_for_project(activity.clone(), project_conf)?;
+                    print_and_log_info!("Setting up for project {}", path);
+                } else {
+                    print_and_log_info!("Watched project {} does not exist or is missing the config file.", path);
+                }
+
+                Ok(())
+            })?;
     } else {
         return Err(new_err("Please specify activity ID"));
     }
